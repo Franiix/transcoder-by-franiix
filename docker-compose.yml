@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  transcoder:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./input:/app/input
+      - ./output:/app/output
+      - ./logs:/app/logs
