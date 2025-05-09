@@ -1,0 +1,45 @@
+name: Auto tag and changelog
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  version:
+    if: startsWith(github.event.head_commit.message, '🔖 Release')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Git
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+      - name: Get version from commit message
+        id: get_version
+        run: |
+          version=$(echo "${{ github.event.head_commit.message }}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Create tag
+        run: |
+          git tag v${{ steps.get_version.outputs.version }}
+          git push origin v${{ steps.get_version.outputs.version }}
+
+      - name: Generate changelog
+        run: |
+          last_tag=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          echo -e "\n## [${{ steps.get_version.outputs.version }}] – $(date +%Y-%m-%d)\n" >> temp_changelog.md
+          if [ -n "$last_tag" ]; then
+            git log $last_tag..HEAD --pretty=format:"- %s" >> temp_changelog.md
+          else
+            git log --pretty=format:"- %s" >> temp_changelog.md
+          fi
+          echo -e "\n$(cat CHANGELOG.md)" >> temp_changelog.md
+          mv temp_changelog.md CHANGELOG.md
+          git add CHANGELOG.md
+          git commit -m "📝 Update CHANGELOG for v${{ steps.get_version.outputs.version }}"
+          git push
